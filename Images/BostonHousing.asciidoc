@@ -1,0 +1,729 @@
+= Boston Housing Price Prediction
+
+This notebook trains a few machine learning models on the Boston Housing
+dataset
+
+== Imports
+
+
++*In[2]:*+
+[source, ipython3]
+----
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression 
+from sklearn.metrics import mean_squared_error 
+import seaborn as sns
+import tensorflow as tf
+from tensorflow import keras
+from sklearn.preprocessing import StandardScaler
+----
+
+== Loading, processing, and analysing the data
+
+
++*In[15]:*+
+[source, ipython3]
+----
+# The boston.txt file was incorrectly formatted, so we have to do some data science acrobatics in order to load it in the correct format.
+df3 = pd.read_csv("boston.txt", sep="\s+", header=None, skiprows=lambda x: x%2 == 1)
+df2 = pd.read_csv("boston.txt", sep="\s+", header=None, skiprows=lambda x: x%2 == 0)
+data = pd.concat([df3, df2], axis=1)
+feature_names = ["CRIM", "ZN", "INDUS", "CHAS", "NOX", "RM", "AGE", "DIS", "RAD", "TAX", "PTRATIO", "B", "LSTAT", "Price"]    
+data.columns = feature_names
+
+# Displaying statistics about the data
+print("The data is a 2D matrix of size", data.shape)
+print("This means that there are 506 houses in the sample, each with 13 features, which will be used to predict the target - MDEV or Price.")
+print("Below is a table of statistics:")
+data.describe() 
+----
+
+
++*Out[15]:*+
+----
+The data is a 2D matrix of size (506, 14)
+This means that there are 506 houses in the sample, each with 13 features, which will be used to predict the target - MDEV or Price.
+Below is a table of statistics.
+
+[cols=",,,,,,,,,,,,,,",options="header",]
+|=======================================================================
+| |CRIM |ZN |INDUS |CHAS |NOX |RM |AGE |DIS |RAD |TAX |PTRATIO |B |LSTAT
+|Price
+|count |506.000000 |506.000000 |506.000000 |506.000000 |506.000000
+|506.000000 |506.000000 |506.000000 |506.000000 |506.000000 |506.000000
+|506.000000 |506.000000 |506.000000
+
+|mean |3.613524 |11.363636 |11.136779 |0.069170 |0.554695 |6.284634
+|68.574901 |3.795043 |9.549407 |408.237154 |18.455534 |356.674032
+|12.653063 |22.532806
+
+|std |8.601545 |23.322453 |6.860353 |0.253994 |0.115878 |0.702617
+|28.148861 |2.105710 |8.707259 |168.537116 |2.164946 |91.294864
+|7.141062 |9.197104
+
+|min |0.006320 |0.000000 |0.460000 |0.000000 |0.385000 |3.561000
+|2.900000 |1.129600 |1.000000 |187.000000 |12.600000 |0.320000 |1.730000
+|5.000000
+
+|25% |0.082045 |0.000000 |5.190000 |0.000000 |0.449000 |5.885500
+|45.025000 |2.100175 |4.000000 |279.000000 |17.400000 |375.377500
+|6.950000 |17.025000
+
+|50% |0.256510 |0.000000 |9.690000 |0.000000 |0.538000 |6.208500
+|77.500000 |3.207450 |5.000000 |330.000000 |19.050000 |391.440000
+|11.360000 |21.200000
+
+|75% |3.677082 |12.500000 |18.100000 |0.000000 |0.624000 |6.623500
+|94.075000 |5.188425 |24.000000 |666.000000 |20.200000 |396.225000
+|16.955000 |25.000000
+
+|max |88.976200 |100.000000 |27.740000 |1.000000 |0.871000 |8.780000
+|100.000000 |12.126500 |24.000000 |711.000000 |22.000000 |396.900000
+|37.970000 |50.000000
+|=======================================================================
+----
+
+
++*In[16]:*+
+[source, ipython3]
+----
+print("Here are the first 5 data points:")
+data.head() 
+----
+
+
++*Out[16]:*+
+----
+Here are the first 5 data points:
+
+[cols=",,,,,,,,,,,,,,",options="header",]
+|=======================================================================
+| |CRIM |ZN |INDUS |CHAS |NOX |RM |AGE |DIS |RAD |TAX |PTRATIO |B |LSTAT
+|Price
+|0 |0.00632 |18.0 |2.31 |0 |0.538 |6.575 |65.2 |4.0900 |1 |296.0 |15.3
+|396.90 |4.98 |24.0
+
+|1 |0.02731 |0.0 |7.07 |0 |0.469 |6.421 |78.9 |4.9671 |2 |242.0 |17.8
+|396.90 |9.14 |21.6
+
+|2 |0.02729 |0.0 |7.07 |0 |0.469 |7.185 |61.1 |4.9671 |2 |242.0 |17.8
+|392.83 |4.03 |34.7
+
+|3 |0.03237 |0.0 |2.18 |0 |0.458 |6.998 |45.8 |6.0622 |3 |222.0 |18.7
+|394.63 |2.94 |33.4
+
+|4 |0.06905 |0.0 |2.18 |0 |0.458 |7.147 |54.2 |6.0622 |3 |222.0 |18.7
+|396.90 |5.33 |36.2
+|=======================================================================
+----
+
+
++*In[17]:*+
+[source, ipython3]
+----
+print("Here is some information about the dataframe object:")
+data.info() 
+----
+
+
++*Out[17]:*+
+----
+Here is some information about the dataframe object:
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 506 entries, 0 to 505
+Data columns (total 14 columns):
+ #   Column   Non-Null Count  Dtype  
+---  ------   --------------  -----  
+ 0   CRIM     506 non-null    float64
+ 1   ZN       506 non-null    float64
+ 2   INDUS    506 non-null    float64
+ 3   CHAS     506 non-null    int64  
+ 4   NOX      506 non-null    float64
+ 5   RM       506 non-null    float64
+ 6   AGE      506 non-null    float64
+ 7   DIS      506 non-null    float64
+ 8   RAD      506 non-null    int64  
+ 9   TAX      506 non-null    float64
+ 10  PTRATIO  506 non-null    float64
+ 11  B        506 non-null    float64
+ 12  LSTAT    506 non-null    float64
+ 13  Price    506 non-null    float64
+dtypes: float64(12), int64(2)
+memory usage: 55.5 KB
+----
+
+
++*In[18]:*+
+[source, ipython3]
+----
+# The image shows the correlation between each set of value. Large positive scores between the features show that there is a strong positive correlation. We see a maximum of value 1 in all the diagonal values.
+data[data.columns].corr()
+
+ax = sns.heatmap(data[data.columns].corr(), cmap=sns.cubehelix_palette(20, light=0.95, dark=0.15))
+ax.xaxis.tick_top()
+
+# If necessary, we can remove some columns "unrelated" to price to speed up computation - we can check which features are unrelated by looking at the last row of the diagram.
+# for col in ['NOX', 'RAD', 'PTRATIO', 'B']:
+#     del data[col]
+# data.head()
+----
+
+
++*Out[18]:*+
+----
+![png](output_7_0.png)
+----
+
+
++*In[19]:*+
+[source, ipython3]
+----
+# We can also look at the shape of the data - here we visualise the graphs of a few columns
+sns.pairplot(data[["CRIM", "INDUS", "CHAS", "RM"]], diag_kind="kde")
+
+# RM and MEDV have the shape like that in a normally distributed graph.
+# AGE is skewed to the left and LSTAT is skewed to the right.
+# TAX has a large amount of distribution around the point 700.
+----
+
+
++*Out[19]:*+
+----<seaborn.axisgrid.PairGrid at 0x1a3dc33a10>
+![png](output_8_1.png)
+----
+
+== Next, we split the data in order to train our model
+
+
++*In[41]:*+
+[source, ipython3]
+----
+# Input Data - selecting the features
+x = data[["CRIM", "ZN", "INDUS", "CHAS", "NOX", "RM", "AGE", "DIS", "RAD", "TAX", "PTRATIO", "B", "LSTAT"]].values
+# x = pd.DataFrame(x)
+print(x.shape)
+# Output Data - selecting the target
+y = data[["Price"]].values
+# y.flatten()
+y = y.reshape([506,]) 
+print(y.shape)
+# y = pd.DataFrame(y)
+# Splitting the data into training and test sets using SciKit Learn
+xtrain, xtest, ytrain, ytest = train_test_split(x, y, test_size =0.2, random_state = 0) 
+
+# We can use an automatic function to scale our data - this helps the model to train more efficiently
+scaler = StandardScaler()
+xtrain = scaler.fit_transform(xtrain)
+xtest = scaler.transform(xtest)
+
+# Displaying the shape of our train and test sets
+print("xtrain shape : ", xtrain.shape) 
+print("xtest shape  : ", xtest.shape) 
+print("ytrain shape : ", ytrain.shape) 
+print("ytest shape  : ", ytest.shape) 
+----
+
+
++*Out[41]:*+
+----
+(506, 13)
+(506,)
+xtrain shape :  (404, 13)
+xtest shape  :  (102, 13)
+ytrain shape :  (404,)
+ytest shape  :  (102,)
+----
+
+== Train the first model - a linear model created using the SciKit
+functionality
+
+
++*In[42]:*+
+[source, ipython3]
+----
+# Fitting Multi-Linear regression model to training model 
+regressor = LinearRegression() 
+regressor.fit(xtrain, ytrain) 
+   
+# predicting the test set results 
+y_pred = regressor.predict(xtest) 
+----
+
+== Plot the results
+
+A perfectly accurate model will achive a straight line where prediction
+= true value
+
+
++*In[43]:*+
+[source, ipython3]
+----
+plt.scatter(ytest, y_pred, c = 'green') 
+plt.xlabel("Price in thousands of dollars") 
+plt.ylabel("Predicted value") 
+plt.title("True value vs. predicted value using Linear Regression") 
+plt.show() 
+# Results of Linear Regression. 
+mse = mean_squared_error(ytest, y_pred) 
+print("The Mean Square Error is", mse, ". This indicates our model was (100%-33%) = 67% accurate.") 
+print("The model performs relatively well considering it was linear, a positive correlation can be clearly seen.")
+print("However, this model is underfitting - generalizing with a high level of bias.")
+print("Much better results can be achived with more complex models.")
+----
+
+
++*Out[43]:*+
+----
+![png](output_14_0.png)
+
+The Mean Square Error is 33.448979997676496 . This indicates our model was (100%-33%) = 67% accurate.
+The model performs relatively well considering it was linear, a positive correlation can be clearly seen.
+However, this model is underfitting - generalizing with a high level of bias.
+Much better results can be achived with more complex models.
+----
+
+== Training a second model using tensorflow with tensorboard
+visualizations
+
+
++*In[58]:*+
+[source, ipython3]
+----
+# Importing and setting up tensorboard
+import tensorboard
+import datetime
+!rm -rf ./logs/ 
+%load_ext tensorboard
+
+# Building the model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(64, input_dim=13, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dropout(0.2),  # 20% chance of dropping a nodes in each layer for a given forward pass
+    tf.keras.layers.Dense(1)])
+optimizer = tf.keras.optimizers.RMSprop(0.001)
+model.compile(loss='mse', optimizer=optimizer, metrics=['mae', 'mse'])  # we will use the mean squared error and the mean absolute error to judge our model.
+model.summary()
+
+# Configuring Tensorboard
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+# Training for a maximum of 1000 epochs. This functionality will stop the model if it is no longer improving
+early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
+early_history = model.fit(xtrain, ytrain, epochs=1000, validation_split = 0.2, verbose=1, callbacks = [early_stop, tensorboard_callback])
+
+# Displaying tensorboard
+%tensorboard --logdir logs/fit
+----
+
+
++*Out[58]:*+
+----
+The tensorboard extension is already loaded. To reload it, use:
+  %reload_ext tensorboard
+Model: "sequential_6"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_30 (Dense)             (None, 64)                896       
+_________________________________________________________________
+dense_31 (Dense)             (None, 64)                4160      
+_________________________________________________________________
+dense_32 (Dense)             (None, 64)                4160      
+_________________________________________________________________
+dense_33 (Dense)             (None, 64)                4160      
+_________________________________________________________________
+dropout_6 (Dropout)          (None, 64)                0         
+_________________________________________________________________
+dense_34 (Dense)             (None, 1)                 65        
+=================================================================
+Total params: 13,441
+Trainable params: 13,441
+Non-trainable params: 0
+_________________________________________________________________
+Train on 323 samples, validate on 81 samples
+Epoch 1/1000
+323/323 [==============================] - 15s 46ms/sample - loss: 554.5175 - mae: 21.6830 - mse: 554.5175 - val_loss: 443.4940 - val_mae: 18.8345 - val_mse: 443.4940
+Epoch 2/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 331.6282 - mae: 15.6790 - mse: 331.6282 - val_loss: 125.8582 - val_mae: 8.9002 - val_mse: 125.8582
+Epoch 3/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 110.5326 - mae: 8.0258 - mse: 110.5326 - val_loss: 51.5199 - val_mae: 5.3149 - val_mse: 51.5199
+Epoch 4/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 65.9019 - mae: 6.1270 - mse: 65.9019 - val_loss: 31.0578 - val_mae: 4.2908 - val_mse: 31.0578
+Epoch 5/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 41.7661 - mae: 4.7971 - mse: 41.7661 - val_loss: 27.2419 - val_mae: 3.7067 - val_mse: 27.2419
+Epoch 6/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 32.6630 - mae: 4.2653 - mse: 32.6630 - val_loss: 17.2683 - val_mae: 2.9672 - val_mse: 17.2683
+Epoch 7/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 28.4124 - mae: 3.9304 - mse: 28.4124 - val_loss: 21.6734 - val_mae: 3.3589 - val_mse: 21.6734
+Epoch 8/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 26.4042 - mae: 3.7976 - mse: 26.4042 - val_loss: 22.5830 - val_mae: 3.4680 - val_mse: 22.5830
+Epoch 9/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 27.7148 - mae: 3.9259 - mse: 27.7148 - val_loss: 15.2954 - val_mae: 2.8698 - val_mse: 15.2954
+Epoch 10/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 24.4115 - mae: 3.7869 - mse: 24.4115 - val_loss: 17.7629 - val_mae: 3.1321 - val_mse: 17.7629
+Epoch 11/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 23.0782 - mae: 3.4951 - mse: 23.0782 - val_loss: 15.6702 - val_mae: 2.8658 - val_mse: 15.6702
+Epoch 12/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 19.2668 - mae: 3.3261 - mse: 19.2668 - val_loss: 29.1089 - val_mae: 4.2077 - val_mse: 29.1089
+Epoch 13/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 21.2911 - mae: 3.3906 - mse: 21.2911 - val_loss: 13.9648 - val_mae: 2.6506 - val_mse: 13.9648
+Epoch 14/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 19.2861 - mae: 3.3577 - mse: 19.2861 - val_loss: 19.7967 - val_mae: 3.3221 - val_mse: 19.7967
+Epoch 15/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 17.1506 - mae: 3.2253 - mse: 17.1506 - val_loss: 21.2165 - val_mae: 3.4041 - val_mse: 21.2165
+Epoch 16/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 20.1007 - mae: 3.3886 - mse: 20.1007 - val_loss: 18.7303 - val_mae: 3.1008 - val_mse: 18.7303
+Epoch 17/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 19.8801 - mae: 3.3149 - mse: 19.8801 - val_loss: 11.9961 - val_mae: 2.4178 - val_mse: 11.9961
+Epoch 18/1000
+323/323 [==============================] - 1s 2ms/sample - loss: 18.0090 - mae: 3.1502 - mse: 18.0090 - val_loss: 20.5714 - val_mae: 3.4725 - val_mse: 20.5714
+Epoch 19/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 16.8375 - mae: 3.1061 - mse: 16.8375 - val_loss: 20.6600 - val_mae: 3.6233 - val_mse: 20.6600
+Epoch 20/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 17.3052 - mae: 3.1104 - mse: 17.3052 - val_loss: 10.3878 - val_mae: 2.2270 - val_mse: 10.3878
+Epoch 21/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 17.3841 - mae: 3.1957 - mse: 17.3841 - val_loss: 10.7951 - val_mae: 2.3016 - val_mse: 10.7951
+Epoch 22/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.6517 - mae: 2.8996 - mse: 13.6517 - val_loss: 11.6367 - val_mae: 2.3803 - val_mse: 11.6367
+Epoch 23/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 16.6540 - mae: 3.0468 - mse: 16.6540 - val_loss: 12.0303 - val_mae: 2.4757 - val_mse: 12.0303
+Epoch 24/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 16.0175 - mae: 3.0006 - mse: 16.0175 - val_loss: 18.5498 - val_mae: 3.2410 - val_mse: 18.5498
+Epoch 25/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.9740 - mae: 3.0500 - mse: 14.9740 - val_loss: 19.1577 - val_mae: 3.3907 - val_mse: 19.1577
+Epoch 26/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.6985 - mae: 2.8204 - mse: 15.6985 - val_loss: 11.7999 - val_mae: 2.5046 - val_mse: 11.7999
+Epoch 27/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.8893 - mae: 3.0956 - mse: 15.8893 - val_loss: 9.5733 - val_mae: 2.2310 - val_mse: 9.5733
+Epoch 28/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.4390 - mae: 2.9433 - mse: 15.4390 - val_loss: 15.6889 - val_mae: 2.8306 - val_mse: 15.6889
+Epoch 29/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 17.5232 - mae: 3.1615 - mse: 17.5232 - val_loss: 13.5496 - val_mae: 2.5778 - val_mse: 13.5496
+Epoch 30/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.4505 - mae: 2.8013 - mse: 13.4505 - val_loss: 11.5639 - val_mae: 2.4039 - val_mse: 11.5639
+Epoch 31/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.1459 - mae: 2.9364 - mse: 14.1459 - val_loss: 26.5276 - val_mae: 3.9606 - val_mse: 26.5276
+Epoch 32/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 15.6247 - mae: 3.0201 - mse: 15.6247 - val_loss: 11.6038 - val_mae: 2.3718 - val_mse: 11.6038
+Epoch 33/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.6730 - mae: 2.9594 - mse: 15.6730 - val_loss: 11.5908 - val_mae: 2.5059 - val_mse: 11.5908
+Epoch 34/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.6916 - mae: 2.8469 - mse: 14.6916 - val_loss: 17.5312 - val_mae: 3.2444 - val_mse: 17.5312
+Epoch 35/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.7516 - mae: 2.8542 - mse: 14.7516 - val_loss: 20.4474 - val_mae: 3.6761 - val_mse: 20.4474
+Epoch 36/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 16.9879 - mae: 3.0721 - mse: 16.9879 - val_loss: 10.3454 - val_mae: 2.3725 - val_mse: 10.3454
+Epoch 37/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.2130 - mae: 2.8453 - mse: 14.2130 - val_loss: 10.1864 - val_mae: 2.2985 - val_mse: 10.1864
+Epoch 38/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.1623 - mae: 2.7678 - mse: 13.1623 - val_loss: 14.7036 - val_mae: 2.9354 - val_mse: 14.7036
+Epoch 39/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.9266 - mae: 2.6751 - mse: 12.9266 - val_loss: 11.8080 - val_mae: 2.4550 - val_mse: 11.8080
+Epoch 40/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.5382 - mae: 2.6912 - mse: 12.5382 - val_loss: 9.4834 - val_mae: 2.2034 - val_mse: 9.4833
+Epoch 41/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.7618 - mae: 2.7553 - mse: 14.7618 - val_loss: 18.4418 - val_mae: 3.2861 - val_mse: 18.4418
+Epoch 42/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.4838 - mae: 2.7696 - mse: 13.4838 - val_loss: 7.0707 - val_mae: 1.8912 - val_mse: 7.0707
+Epoch 43/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.9791 - mae: 2.7947 - mse: 13.9791 - val_loss: 14.5693 - val_mae: 2.9347 - val_mse: 14.5693
+Epoch 44/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.7832 - mae: 2.9166 - mse: 15.7832 - val_loss: 9.8651 - val_mae: 2.2697 - val_mse: 9.8651
+Epoch 45/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.7500 - mae: 2.6306 - mse: 11.7500 - val_loss: 46.0857 - val_mae: 5.6290 - val_mse: 46.0857
+Epoch 46/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.9829 - mae: 3.0721 - mse: 15.9829 - val_loss: 9.2265 - val_mae: 2.1814 - val_mse: 9.2265
+Epoch 47/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.7333 - mae: 2.7386 - mse: 13.7333 - val_loss: 8.2203 - val_mae: 2.0398 - val_mse: 8.2203
+Epoch 48/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.5083 - mae: 2.4673 - mse: 10.5083 - val_loss: 28.7165 - val_mae: 4.3230 - val_mse: 28.7165
+Epoch 49/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 15.1126 - mae: 2.9555 - mse: 15.1126 - val_loss: 13.2941 - val_mae: 2.7785 - val_mse: 13.2941
+Epoch 50/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 11.9936 - mae: 2.6381 - mse: 11.9936 - val_loss: 7.5164 - val_mae: 2.0527 - val_mse: 7.5164
+Epoch 51/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.3372 - mae: 2.6255 - mse: 12.3372 - val_loss: 14.4629 - val_mae: 2.8957 - val_mse: 14.4629
+Epoch 52/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.3257 - mae: 2.7802 - mse: 13.3257 - val_loss: 24.3963 - val_mae: 4.0352 - val_mse: 24.3963
+Epoch 53/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.7914 - mae: 2.5989 - mse: 11.7914 - val_loss: 10.6792 - val_mae: 2.3947 - val_mse: 10.6792
+Epoch 54/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.9052 - mae: 2.7042 - mse: 12.9052 - val_loss: 7.0443 - val_mae: 1.9717 - val_mse: 7.0443
+Epoch 55/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.7853 - mae: 2.6203 - mse: 12.7853 - val_loss: 8.5957 - val_mae: 2.0663 - val_mse: 8.5957
+Epoch 56/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.8756 - mae: 2.5600 - mse: 11.8756 - val_loss: 9.2499 - val_mae: 2.2339 - val_mse: 9.2499
+Epoch 57/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.7611 - mae: 2.7653 - mse: 12.7611 - val_loss: 11.3004 - val_mae: 2.4588 - val_mse: 11.3004
+Epoch 58/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 12.5962 - mae: 2.7239 - mse: 12.5962 - val_loss: 15.4296 - val_mae: 2.9270 - val_mse: 15.4296
+Epoch 59/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 14.7633 - mae: 2.9619 - mse: 14.7633 - val_loss: 7.9660 - val_mae: 2.0746 - val_mse: 7.9660
+Epoch 60/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.6395 - mae: 2.4704 - mse: 10.6395 - val_loss: 7.9845 - val_mae: 2.0816 - val_mse: 7.9845
+Epoch 61/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.7671 - mae: 2.8419 - mse: 13.7671 - val_loss: 7.6078 - val_mae: 2.0062 - val_mse: 7.6078
+Epoch 62/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.2941 - mae: 2.6495 - mse: 12.2941 - val_loss: 15.2174 - val_mae: 3.1161 - val_mse: 15.2174
+Epoch 63/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.6060 - mae: 2.7281 - mse: 13.6060 - val_loss: 10.1505 - val_mae: 2.4187 - val_mse: 10.1505
+Epoch 64/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.1525 - mae: 2.5124 - mse: 11.1525 - val_loss: 16.3086 - val_mae: 3.3449 - val_mse: 16.3086
+Epoch 65/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.6278 - mae: 2.6598 - mse: 13.6278 - val_loss: 8.4168 - val_mae: 2.1351 - val_mse: 8.4168
+Epoch 66/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.0010 - mae: 2.6762 - mse: 13.0010 - val_loss: 7.3596 - val_mae: 1.9923 - val_mse: 7.3596
+Epoch 67/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.1338 - mae: 2.4175 - mse: 10.1338 - val_loss: 10.2992 - val_mae: 2.4721 - val_mse: 10.2992
+Epoch 68/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.4221 - mae: 2.6753 - mse: 12.4221 - val_loss: 10.7160 - val_mae: 2.3964 - val_mse: 10.7160
+Epoch 69/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 11.0417 - mae: 2.5723 - mse: 11.0417 - val_loss: 7.3027 - val_mae: 2.0262 - val_mse: 7.3027
+Epoch 70/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.1004 - mae: 2.6674 - mse: 12.1004 - val_loss: 6.4942 - val_mae: 1.8703 - val_mse: 6.4942
+Epoch 71/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 10.0686 - mae: 2.5089 - mse: 10.0686 - val_loss: 7.3549 - val_mae: 2.0532 - val_mse: 7.3549
+Epoch 72/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 11.3731 - mae: 2.6013 - mse: 11.3731 - val_loss: 7.1176 - val_mae: 2.0445 - val_mse: 7.1176
+Epoch 73/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 11.3073 - mae: 2.5879 - mse: 11.3073 - val_loss: 16.6812 - val_mae: 3.3124 - val_mse: 16.6812
+Epoch 74/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 12.1723 - mae: 2.7220 - mse: 12.1723 - val_loss: 7.8989 - val_mae: 2.0901 - val_mse: 7.8989
+Epoch 75/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.6211 - mae: 2.5255 - mse: 11.6211 - val_loss: 13.9438 - val_mae: 2.9516 - val_mse: 13.9438
+Epoch 76/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.8239 - mae: 2.6033 - mse: 11.8239 - val_loss: 13.9231 - val_mae: 2.8737 - val_mse: 13.9231
+Epoch 77/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.1229 - mae: 2.4065 - mse: 10.1229 - val_loss: 11.9836 - val_mae: 2.6365 - val_mse: 11.9836
+Epoch 78/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.2709 - mae: 2.4443 - mse: 10.2709 - val_loss: 11.4778 - val_mae: 2.7037 - val_mse: 11.4778
+Epoch 79/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.0757 - mae: 2.2419 - mse: 9.0757 - val_loss: 9.3414 - val_mae: 2.2625 - val_mse: 9.3414
+Epoch 80/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 10.6984 - mae: 2.5447 - mse: 10.6984 - val_loss: 6.8751 - val_mae: 1.9695 - val_mse: 6.8751
+Epoch 81/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.5179 - mae: 2.2835 - mse: 8.5179 - val_loss: 15.4005 - val_mae: 3.0655 - val_mse: 15.4005
+Epoch 82/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.8670 - mae: 2.5045 - mse: 10.8670 - val_loss: 26.2995 - val_mae: 3.8644 - val_mse: 26.2995
+Epoch 83/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.8916 - mae: 2.4885 - mse: 10.8916 - val_loss: 7.5087 - val_mae: 2.1629 - val_mse: 7.5087
+Epoch 84/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.1160 - mae: 2.6637 - mse: 12.1160 - val_loss: 16.7298 - val_mae: 3.2459 - val_mse: 16.7298
+Epoch 85/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.9079 - mae: 2.3086 - mse: 8.9079 - val_loss: 5.7769 - val_mae: 1.9321 - val_mse: 5.7769
+Epoch 86/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.5620 - mae: 2.4360 - mse: 10.5620 - val_loss: 13.4297 - val_mae: 2.9114 - val_mse: 13.4297
+Epoch 87/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.5042 - mae: 2.6099 - mse: 12.5042 - val_loss: 10.1020 - val_mae: 2.4443 - val_mse: 10.1020
+Epoch 88/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.4931 - mae: 2.5375 - mse: 11.4931 - val_loss: 10.0971 - val_mae: 2.4963 - val_mse: 10.0971
+Epoch 89/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.0589 - mae: 2.3603 - mse: 9.0589 - val_loss: 19.9249 - val_mae: 3.7395 - val_mse: 19.9249
+Epoch 90/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 12.6971 - mae: 2.6331 - mse: 12.6971 - val_loss: 10.9241 - val_mae: 2.6117 - val_mse: 10.9241
+Epoch 91/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 10.7687 - mae: 2.4910 - mse: 10.7687 - val_loss: 6.9428 - val_mae: 1.9845 - val_mse: 6.9428
+Epoch 92/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.1312 - mae: 2.5703 - mse: 11.1312 - val_loss: 7.7795 - val_mae: 2.1099 - val_mse: 7.7795
+Epoch 93/1000
+323/323 [==============================] - 1s 5ms/sample - loss: 10.8586 - mae: 2.5313 - mse: 10.8586 - val_loss: 5.9169 - val_mae: 1.8708 - val_mse: 5.9169
+Epoch 94/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.2424 - mae: 2.5752 - mse: 11.2424 - val_loss: 9.7314 - val_mae: 2.3862 - val_mse: 9.7314
+Epoch 95/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.5233 - mae: 2.2919 - mse: 10.5233 - val_loss: 11.5688 - val_mae: 2.4908 - val_mse: 11.5688
+Epoch 96/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.5879 - mae: 2.3332 - mse: 9.5879 - val_loss: 11.2984 - val_mae: 2.5381 - val_mse: 11.2984
+Epoch 97/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.1382 - mae: 2.4493 - mse: 10.1382 - val_loss: 6.4886 - val_mae: 1.9495 - val_mse: 6.4886
+Epoch 98/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.0685 - mae: 2.3603 - mse: 9.0685 - val_loss: 6.4259 - val_mae: 1.8696 - val_mse: 6.4259
+Epoch 99/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.6823 - mae: 2.3282 - mse: 9.6823 - val_loss: 11.3444 - val_mae: 2.6531 - val_mse: 11.3444
+Epoch 100/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 10.2231 - mae: 2.6081 - mse: 10.2231 - val_loss: 25.2349 - val_mae: 4.1131 - val_mse: 25.2349
+Epoch 101/1000
+323/323 [==============================] - 1s 5ms/sample - loss: 10.6738 - mae: 2.5280 - mse: 10.6738 - val_loss: 8.1751 - val_mae: 2.1980 - val_mse: 8.1751
+Epoch 102/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 10.8008 - mae: 2.5472 - mse: 10.8008 - val_loss: 13.6047 - val_mae: 3.0562 - val_mse: 13.6047
+Epoch 103/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 11.8146 - mae: 2.5032 - mse: 11.8146 - val_loss: 9.4718 - val_mae: 2.4378 - val_mse: 9.4718
+Epoch 104/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.8015 - mae: 2.3952 - mse: 9.8015 - val_loss: 19.6707 - val_mae: 3.4737 - val_mse: 19.6707
+Epoch 105/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 11.4741 - mae: 2.6034 - mse: 11.4741 - val_loss: 7.7285 - val_mae: 2.1459 - val_mse: 7.7285
+Epoch 106/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.2383 - mae: 2.4942 - mse: 10.2383 - val_loss: 7.3552 - val_mae: 2.0998 - val_mse: 7.3552
+Epoch 107/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 11.5923 - mae: 2.5401 - mse: 11.5923 - val_loss: 11.2684 - val_mae: 2.6685 - val_mse: 11.2684
+Epoch 108/1000
+323/323 [==============================] - 2s 6ms/sample - loss: 10.2795 - mae: 2.4124 - mse: 10.2795 - val_loss: 19.1258 - val_mae: 3.7852 - val_mse: 19.1258
+Epoch 109/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 9.5224 - mae: 2.3119 - mse: 9.5224 - val_loss: 6.3653 - val_mae: 1.9338 - val_mse: 6.3653
+Epoch 110/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.8187 - mae: 2.3869 - mse: 9.8187 - val_loss: 6.3593 - val_mae: 1.9680 - val_mse: 6.3593
+Epoch 111/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 9.3797 - mae: 2.3162 - mse: 9.3797 - val_loss: 8.8238 - val_mae: 2.2360 - val_mse: 8.8238
+Epoch 112/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 8.7464 - mae: 2.2651 - mse: 8.7464 - val_loss: 4.7857 - val_mae: 1.6232 - val_mse: 4.7857
+Epoch 113/1000
+323/323 [==============================] - 1s 3ms/sample - loss: 9.2846 - mae: 2.2965 - mse: 9.2846 - val_loss: 18.8653 - val_mae: 3.2605 - val_mse: 18.8653
+Epoch 114/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.9859 - mae: 2.2994 - mse: 8.9859 - val_loss: 9.0268 - val_mae: 2.3483 - val_mse: 9.0268
+Epoch 115/1000
+323/323 [==============================] - 2s 6ms/sample - loss: 8.6261 - mae: 2.2389 - mse: 8.6261 - val_loss: 12.7143 - val_mae: 2.7252 - val_mse: 12.7143
+Epoch 116/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.3456 - mae: 2.4688 - mse: 10.3456 - val_loss: 8.5201 - val_mae: 2.2543 - val_mse: 8.5201
+Epoch 117/1000
+323/323 [==============================] - 2s 7ms/sample - loss: 8.9275 - mae: 2.2676 - mse: 8.9275 - val_loss: 7.7031 - val_mae: 2.1488 - val_mse: 7.7031
+Epoch 118/1000
+323/323 [==============================] - 2s 7ms/sample - loss: 12.1888 - mae: 2.6494 - mse: 12.1888 - val_loss: 14.1964 - val_mae: 3.0809 - val_mse: 14.1964
+Epoch 119/1000
+323/323 [==============================] - 2s 7ms/sample - loss: 11.1692 - mae: 2.4066 - mse: 11.1692 - val_loss: 22.4013 - val_mae: 3.7052 - val_mse: 22.4013
+Epoch 120/1000
+323/323 [==============================] - 2s 7ms/sample - loss: 9.7329 - mae: 2.3535 - mse: 9.7329 - val_loss: 7.1129 - val_mae: 2.0718 - val_mse: 7.1129
+Epoch 121/1000
+323/323 [==============================] - 3s 8ms/sample - loss: 10.1635 - mae: 2.3964 - mse: 10.1635 - val_loss: 12.7448 - val_mae: 2.8013 - val_mse: 12.7448
+Epoch 122/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 10.6542 - mae: 2.4599 - mse: 10.6542 - val_loss: 30.1349 - val_mae: 4.2700 - val_mse: 30.1349
+Epoch 123/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 13.8026 - mae: 2.6723 - mse: 13.8026 - val_loss: 7.6611 - val_mae: 2.1573 - val_mse: 7.6611
+Epoch 124/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.1347 - mae: 2.2266 - mse: 8.1347 - val_loss: 7.6564 - val_mae: 2.1056 - val_mse: 7.6564
+Epoch 125/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.2600 - mae: 2.3906 - mse: 10.2600 - val_loss: 10.3345 - val_mae: 2.5383 - val_mse: 10.3345
+Epoch 126/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 9.5292 - mae: 2.3705 - mse: 9.5292 - val_loss: 6.0496 - val_mae: 1.9142 - val_mse: 6.0496
+Epoch 127/1000
+323/323 [==============================] - 1s 5ms/sample - loss: 11.5357 - mae: 2.6121 - mse: 11.5357 - val_loss: 35.0547 - val_mae: 4.4484 - val_mse: 35.0547
+Epoch 128/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.9850 - mae: 2.3149 - mse: 9.9850 - val_loss: 15.0936 - val_mae: 3.1728 - val_mse: 15.0936
+Epoch 129/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.9242 - mae: 2.2671 - mse: 8.9242 - val_loss: 5.5734 - val_mae: 1.8474 - val_mse: 5.5734
+Epoch 130/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.6162 - mae: 2.2840 - mse: 9.6162 - val_loss: 16.8699 - val_mae: 3.1691 - val_mse: 16.8699
+Epoch 131/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.7237 - mae: 2.3573 - mse: 9.7237 - val_loss: 7.9288 - val_mae: 2.1621 - val_mse: 7.9288
+Epoch 132/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.8993 - mae: 2.2797 - mse: 8.8993 - val_loss: 7.2686 - val_mae: 2.1271 - val_mse: 7.2686
+Epoch 133/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.1314 - mae: 2.1653 - mse: 8.1314 - val_loss: 9.1979 - val_mae: 2.4406 - val_mse: 9.1979
+Epoch 134/1000
+323/323 [==============================] - 2s 7ms/sample - loss: 9.1111 - mae: 2.3009 - mse: 9.1111 - val_loss: 8.1823 - val_mae: 2.1419 - val_mse: 8.1823
+Epoch 135/1000
+323/323 [==============================] - 2s 5ms/sample - loss: 8.6498 - mae: 2.2145 - mse: 8.6498 - val_loss: 10.9279 - val_mae: 2.5091 - val_mse: 10.9279
+Epoch 136/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.8332 - mae: 2.4777 - mse: 10.8332 - val_loss: 6.0619 - val_mae: 1.8718 - val_mse: 6.0619
+Epoch 137/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.0648 - mae: 2.2019 - mse: 8.0648 - val_loss: 10.6846 - val_mae: 2.6598 - val_mse: 10.6846
+Epoch 138/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.8302 - mae: 2.2879 - mse: 8.8302 - val_loss: 8.2265 - val_mae: 2.2840 - val_mse: 8.2265
+Epoch 139/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.7253 - mae: 2.2094 - mse: 8.7253 - val_loss: 10.6554 - val_mae: 2.6360 - val_mse: 10.6554
+Epoch 140/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 8.3355 - mae: 2.1924 - mse: 8.3355 - val_loss: 6.6740 - val_mae: 2.1103 - val_mse: 6.6740
+Epoch 141/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 9.1542 - mae: 2.3327 - mse: 9.1542 - val_loss: 7.7913 - val_mae: 2.1315 - val_mse: 7.7913
+Epoch 142/1000
+323/323 [==============================] - 1s 4ms/sample - loss: 10.5012 - mae: 2.4715 - mse: 10.5012 - val_loss: 7.9199 - val_mae: 2.1151 - val_mse: 7.9199
+Reusing TensorBoard on port 6006 (pid 50526), started 1 day, 1:01:55 ago. (Use '!kill 50526' to kill it.)
+
+----
+
+== Further evaluating the results
+
+
++*In[60]:*+
+[source, ipython3]
+----
+loss, mae, mse = model.evaluate(xtest, ytest, verbose=2)
+print("Testing set Mean Abs Error: {:5.2f} MPG".format(mae))
+test_predictions = model.predict(xtest).flatten()
+
+a = plt.axes(aspect='equal')
+plt.scatter(ytest, test_predictions)
+plt.xlabel('True Values [MPG]')
+plt.ylabel('Predictions [MPG]')
+lims = [0, 50]
+plt.xlim(lims)
+plt.ylim(lims)
+_ = plt.plot(lims, lims)
+print("The mean squared error of ", mse, " implies our model is 81% accurate.")
+----
+
+
++*Out[60]:*+
+----
+102/1 - 0s - loss: 11.8632 - mae: 3.2602 - mse: 20.8685
+Testing set Mean Abs Error:  3.26 MPG
+The mean squared error of  20.868475  implies our model is 81% accurate.
+
+![png](output_18_1.png)
+----
+
+
++*In[61]:*+
+[source, ipython3]
+----
+# looking at the errors - Gaussian standard normal distribution (good) means that the errors are random and not biased towards some certain model flaw.
+error = test_predictions - ytest
+plt.hist(error, bins = 25)
+plt.xlabel("Prediction Error [MPG]")
+_ = plt.ylabel("Count")
+----
+
+
++*Out[61]:*+
+----
+![png](output_19_0.png)
+----
+
+
++*In[64]:*+
+[source, ipython3]
+----
+# we can also use a r2 score (coefficient of determination) to gague the correlation between y_true and y_predicted
+from sklearn.metrics import r2_score
+
+def performance_metric(y_true, y_predict):
+    """ Calculates and returns the performance score between 
+        true and predicted values based on the metric chosen. """
+
+    # Calculate the performance score between 'y_true' and 'y_predict'
+    score = r2_score(y_true, y_predict)
+
+    # Return the score
+    return score
+
+# displaying the r2 statistics
+score = performance_metric(ytest, test_predictions)
+print("A model with an R2 score of 0 always fails to predict the target variable, whereas a model with an R2 score of 1 perfectly predicts the target variable.")
+print("Model has a coefficient of determination, R^2, of {:.3f}.".format(score))
+print("This implies", score, "of the variation is explained by the target variable.")
+
+
+
+
+
+----
+
+
++*Out[64]:*+
+----
+A model with an R2 score of 0 always fails to predict the target variable, whereas a model with an R2 score of 1 perfectly predicts the target variable.
+Model has a coefficient of determination, R^2, of 0.744.
+This implies 0.7437200318092532 of the variation is explained by the target variable.
+----
+
+
++*In[ ]:*+
+[source, ipython3]
+----
+
+----
