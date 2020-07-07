@@ -14,4 +14,4 @@ This project run using Python 3, with:
 
 We will make use of a [Jupyter Notebook](http://ipython.org/notebook.html) for development.
 
-The primary code is provided in the 'BostonHousing.ipynb' notebook file. This code trains three machine learning models the boston.txt data. The first model is a linear regressor, the second is a descision tree, and the third is a neural network.
+The primary code is provided in the 'BostonHousing.ipynb' notebook file. This code trains two machine learning models the boston.txt data. The first model is a linear regressor designed using scikit learn and the second is a neural network designed using tensorflow.
